@@ -52,7 +52,7 @@ func TestTargetBlockSummaryReading(t *testing.T) {
 }
 
 func TestTargetBlockLock(t *testing.T) {
-	tgt := NewTarget(100.0, 8000.0, 50*time.Millisecond)
+	tgt := NewTarget(100.0, 8000.0, 1, 2, 50*time.Millisecond)
 	testCh := tgt.Blocks()
 	testCh2 := tgt.Blocks()
 	assert.NotNil(t, testCh, "first channel should exist")
@@ -60,7 +60,7 @@ func TestTargetBlockLock(t *testing.T) {
 }
 
 func TestTargetOverrideBlockSize(t *testing.T) {
-	tgt := NewTarget(100.0, 8000.0, 50*time.Millisecond)
+	tgt := NewTarget(100.0, 8000.0, 1, 2, 50*time.Millisecond)
 	origBlockSize := tgt.blockSize
 	origCos := tgt.cos
 	tgt.SetBlockSize(500)
@@ -71,7 +71,7 @@ func TestTargetOverrideBlockSize(t *testing.T) {
 func testBlockSummaryReading(t *testing.T, fn string, freq float64) (highestMag float64, found bool) {
 	wg := new(sync.WaitGroup)
 
-	tgt := NewTarget(freq, RateTelephony, 50*time.Millisecond)
+	tgt := NewTarget(freq, RateTelephony, 1, 2, 50*time.Millisecond)
 	tgt.UseOptimized = false
 	defer tgt.Stop()
 

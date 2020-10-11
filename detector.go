@@ -16,7 +16,7 @@ func detectTone(pCtx context.Context, freq, sampleRate float64, minDuration time
 		freq = -freq
 	}
 
-	t := NewTarget(freq, sampleRate, minDuration)
+	t := NewTarget(freq, sampleRate, 1, 2, minDuration)
 	defer t.Stop()
 
 	ctx, cancel := context.WithCancel(pCtx)

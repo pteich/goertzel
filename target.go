@@ -9,19 +9,6 @@ import (
 	"time"
 )
 
-// NewTarget creates a Goertzel processor tuned to the given frequency
-func NewTarget(freq, sampleRate float64, minDuration time.Duration) *Target {
-	t := &Target{
-		Frequency:  freq,
-		sampleRate: sampleRate,
-		blockSize:  optimalBlockSize2(freq, sampleRate, minDuration),
-		Threshold:  ToneThreshold,
-	}
-	t.generateConstants()
-
-	return t
-}
-
 // Target is a target frequency detector.  It is a low-level tool which
 // implements the Goertzel algorithm to detect the presence of a frequency on a
 // block-wise basis.
@@ -42,6 +29,13 @@ type Target struct {
 
 	// sampleRate is the number of times per second that we should receive a sample
 	sampleRate float64
+
+	// channelNum specifies the number of channels, 1 = mono, 2 = stereo
+	channelNum int
+
+	// bitDepthInBytes argument specifies the number of bytes per sample per channel. The usual value
+	// is 2. Only values 1 and 2 are supported
+	bitDepthInBytes int
 
 	sin       float64
 	cos       float64
@@ -66,6 +60,21 @@ type Target struct {
 	stopped bool
 
 	mu sync.Mutex
+}
+
+// NewTarget creates a Goertzel processor tuned to the given frequency
+func NewTarget(freq, sampleRate float64, channelNum int, depthInBytes int, minDuration time.Duration) *Target {
+	t := &Target{
+		Frequency:       freq,
+		sampleRate:      sampleRate,
+		blockSize:       optimalBlockSize2(freq, sampleRate, minDuration),
+		Threshold:       ToneThreshold,
+		channelNum:      channelNum,
+		bitDepthInBytes: depthInBytes,
+	}
+	t.generateConstants()
+
+	return t
 }
 
 // SetBlockSize overrides automatic calculation of the optimal N (block size) value and uses the one provided instead
@@ -106,7 +115,7 @@ func (t *Target) ingest(in io.Reader) (err error) {
 	r := bufio.NewReader(in)
 
 	for {
-		var buf = make([]byte, 2)
+		var buf = make([]byte, t.channelNum*t.bitDepthInBytes)
 
 		_, err = r.Read(buf)
 		if err != nil {
