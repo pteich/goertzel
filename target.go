@@ -107,8 +107,8 @@ func (t *Target) ingest(in io.Reader) (err error) {
 
 	for {
 		var buf = make([]byte, 2)
-		buf[0], _ = r.ReadByte()
-		buf[1], err = r.ReadByte()
+
+		_, err = r.Read(buf)
 		if err != nil {
 			return err
 		}

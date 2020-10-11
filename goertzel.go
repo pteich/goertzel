@@ -1,7 +1,6 @@
 package goertzel
 
 import (
-	"log"
 	"time"
 )
 
@@ -76,7 +75,6 @@ func optimalBlockSize(ω, rate float64, minDuration time.Duration) int {
 	}
 
 	// Return best optimization (most common matches)
-	log.Printf("failed to determine better N than max: %d", maxN)
 	return maxN
 }
 
