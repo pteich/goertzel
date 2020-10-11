@@ -107,7 +107,7 @@ func (t *Target) Read(in io.Reader) error {
 
 func (t *Target) ingest(in io.Reader) (err error) {
 	var i int
-	var sample int16
+	var sample float64
 	var q, q1, q2 float64
 
 	defer t.Stop()
@@ -122,10 +122,16 @@ func (t *Target) ingest(in io.Reader) (err error) {
 			return err
 		}
 
-		sample = int16(binary.LittleEndian.Uint16(buf))
+		if t.channelNum == 2 {
+			sampleL := int16(binary.LittleEndian.Uint16(buf[:t.bitDepthInBytes]))
+			sampleR := int16(binary.LittleEndian.Uint16(buf[t.bitDepthInBytes:]))
+			sample = float64(sampleL)*0.5 + float64(sampleR)*0.5
+		} else {
+			sample = float64(int16(binary.LittleEndian.Uint16(buf[:t.bitDepthInBytes])))
+		}
 
 		i++
-		q = t.coeff*q1 - q2 + float64(sample)
+		q = t.coeff*q1 - q2 + sample
 
 		q2 = q1
 		q1 = q
