@@ -1,9 +1,7 @@
 package goertzel
 
 import (
-	"bufio"
 	"encoding/binary"
-	"io"
 	"math"
 	"sync"
 	"time"
@@ -52,6 +50,8 @@ type Target struct {
 	// Magnitude2 is the square of the magnitude of the last-processed block
 	Magnitude2 float64
 
+	buf []byte
+
 	// blockReader variables for managing output of block summaries
 	blockReaderPresent bool
 	blockReader        chan *BlockSummary
@@ -71,8 +71,13 @@ func NewTarget(freq, sampleRate float64, channelNum int, depthInBytes int, minDu
 		Threshold:       ToneThreshold,
 		channelNum:      channelNum,
 		bitDepthInBytes: depthInBytes,
+		buf:             make([]byte, 0),
 	}
 	t.generateConstants()
+
+	go func() {
+		t.ingest()
+	}()
 
 	return t
 }
@@ -100,27 +105,33 @@ func (t *Target) generateConstants() {
 	t.coeff = 2.0 * t.cos
 }
 
-// Read processes incoming samples through the Target goertzel
-func (t *Target) Read(in io.Reader) error {
-	return t.ingest(in)
+func (t *Target) Write(p []byte) (int, error) {
+	lenP := len(p)
+	lenBuf := len(t.buf)
+	buf := make([]byte, lenBuf+lenP)
+	copy(buf[:lenBuf], t.buf)
+	n := copy(buf[lenBuf:], p)
+	t.buf = buf
+
+	return n, nil
 }
 
-func (t *Target) ingest(in io.Reader) (err error) {
+func (t *Target) ingest() {
 	var i int
 	var sample float64
 	var q, q1, q2 float64
 
 	defer t.Stop()
 
-	r := bufio.NewReader(in)
-
 	for {
+		if len(t.buf) < t.channelNum*t.bitDepthInBytes {
+			continue
+		}
+
 		var buf = make([]byte, t.channelNum*t.bitDepthInBytes)
 
-		_, err = r.Read(buf)
-		if err != nil {
-			return err
-		}
+		copy(buf, t.buf[:t.channelNum*t.bitDepthInBytes])
+		t.buf = t.buf[t.channelNum*t.bitDepthInBytes:]
 
 		if t.channelNum == 2 {
 			sampleL := int16(binary.LittleEndian.Uint16(buf[:t.bitDepthInBytes]))
@@ -143,12 +154,9 @@ func (t *Target) ingest(in io.Reader) (err error) {
 			q1 = 0
 			q2 = 0
 
-			t.mu.Lock()
 			if t.stopped {
-				t.mu.Unlock()
 				return
 			}
-			t.mu.Unlock()
 		}
 	}
 }
@@ -169,14 +177,12 @@ func (t *Target) calculateMagnitude(q1, q2 float64) {
 }
 
 func (t *Target) sendBlockSummary() {
-	t.blockReaderMu.Lock()
 	if t.blockReaderPresent {
 		select {
 		case t.blockReader <- t.blockSummary():
 		default:
 		}
 	}
-	t.blockReaderMu.Unlock()
 }
 
 func (t *Target) blockSummary() *BlockSummary {
@@ -189,6 +195,11 @@ func (t *Target) blockSummary() *BlockSummary {
 	}
 }
 
+func (t *Target) Close() error {
+	t.Stop()
+	return nil
+}
+
 // Stop terminates the Target processing.  It will close the Events channel and stop processing new data.
 func (t *Target) Stop() {
 	t.blockReaderMu.Lock()
@@ -199,9 +210,7 @@ func (t *Target) Stop() {
 	}
 	t.blockReaderMu.Unlock()
 
-	t.mu.Lock()
 	t.stopped = true
-	t.mu.Unlock()
 }
 
 // Blocks returns a channel over which the summary of each resulting block from

@@ -3,7 +3,6 @@ package goertzel
 import (
 	"context"
 	"io"
-	"log"
 	"math"
 	"time"
 )
@@ -24,12 +23,7 @@ func detectTone(pCtx context.Context, freq, sampleRate float64, minDuration time
 
 	go func() {
 		defer cancel()
-		if rErr := t.Read(in); rErr != nil {
-			if rErr == io.EOF {
-				return
-			}
-			log.Println("detectTone: failure reading input:", err)
-		}
+		io.Copy(t, in)
 	}()
 
 	// Figure out the time-size of each block to determine the blocks required to constitute detection
